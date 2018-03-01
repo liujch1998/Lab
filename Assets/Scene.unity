@@ -255,6 +255,7 @@ MonoBehaviour:
   object_obs: {fileID: 221879013}
   eye: {fileID: 1469217581}
   height: 1.6
+  enable: 1
   on_ground: 0
 --- !u!4 &557563763
 Transform:
@@ -814,6 +815,7 @@ MonoBehaviour:
   object_obs: {fileID: 764698978}
   eye: {fileID: 1469217581}
   height: 1.6
+  enable: 1
   on_ground: 1
 --- !u!4 &1821462890
 Transform:

@@ -7,13 +7,20 @@ public class Transformer : MonoBehaviour {
 	public Transform object_obs;
 	public Transform eye;
 	public float height;
+	public bool enable;
 	public bool on_ground;
 
 	void Update () {
-		if (on_ground) {
-			UpdateGroundStanding();
+		if (enable) {
+			if (on_ground) {
+				UpdateGroundStanding();
+			} else {
+				UpdateFloat();
+			}
 		} else {
-			UpdateFloat();
+			object_obs.position = transform.position;
+			object_obs.rotation = transform.rotation;
+			object_obs.localScale = transform.localScale;
 		}
 	}
 
