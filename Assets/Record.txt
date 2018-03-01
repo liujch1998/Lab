@@ -6,4 +6,5 @@ Change frisbee to a talking avatar?
 Separate into two cases: avatar standing on ground & floating frisbee
 Work out math for standing avatar
 Add smooth transition for frisbee
+Add shadow for avatar
 
