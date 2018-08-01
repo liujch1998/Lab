@@ -6,6 +6,7 @@ import unicodedata
 import string
 import re
 import random
+random.seed(19980430)
 
 import torch
 import torch.nn as nn
@@ -64,27 +65,10 @@ def read_langs(lang1, lang2, reverse=False):
 
     return input_lang, output_lang, pairs
 
-def filter (pair):
-    MAX_LENGTH = 10
-    en_prefixes = (
-        "i am ", "i m ",
-        "he is", "he s ",
-        "she is", "she s",
-        "you are", "you re ",
-        "we are", "we re ",
-        "they are", "they re "
-    )
-    return pair[1].startswith(en_prefixes) and \
-        len(pair[0].split(' ')) < MAX_LENGTH and \
-        len(pair[1].split(' ')) < MAX_LENGTH
-
 def load_data (lang1, lang2):
     print("Reading data...")
     input_lang, output_lang, pairs = read_langs(lang1, lang2, reverse=True)
     print("Read %s sentence pairs" % len(pairs))
-    pairs = [pair for pair in pairs if filter(pair)]
-    pairs = pairs[:10000]
-    print("Trimmed to %s sentence pairs" % len(pairs))
     random.shuffle(pairs)
     for pair in pairs:
         input_lang.add_sentence(pair[0])
@@ -112,18 +96,21 @@ def indices_to_sentence (indices, lang):
     return sentence
 
 input_lang, output_lang, pairs = load_data('en', 'fr')
-inputs = [sentence_to_indices(pairs[i][0], input_lang) for i in range(len(pairs))]
-targets = [sentence_to_indices(pairs[i][1], output_lang) for i in range(len(pairs))]
+pairs_train, pairs_dev = pairs[:-1000], pairs[-1000:]
+inputs_train = [sentence_to_indices(pairs[i][0], input_lang) for i in range(len(pairs_train))]
+targets_train = [sentence_to_indices(pairs[i][1], output_lang) for i in range(len(pairs_train))]
+inputs_dev = [sentence_to_indices(pairs[i][0], input_lang) for i in range(len(pairs_dev))]
+targets_dev = [sentence_to_indices(pairs[i][1], output_lang) for i in range(len(pairs_dev))]
 
 ################################################################################
 
-epochs = 5
+epochs = 10
 embedding_size = 300
 hidden_size = 256
 learning_rate = 0.0001
-teacher_forcing_ratio = 1.0
+teacher_forcing_ratio = 0.5
 
-print_every = 100
+print_every = 1000
 
 class EncoderGru (nn.Module):
     def __init__ (self, dict_size, embedding_size, hidden_size):
@@ -258,6 +245,8 @@ def train_all (inputs, targets, encoder, decoder, epochs):
                 loss_avg = loss_sum / print_every
                 print('Loss %s' % loss_avg)
                 loss_sum = 0.0
+        torch.save(encoder, 'model/encoder-epoch' + str(epoch))
+        torch.save(decoder, 'model/decoder-epoch' + str(epoch))
 
 def eval (input, target, encoder, decoder):
     output = []
@@ -279,11 +268,10 @@ def eval (input, target, encoder, decoder):
     output = torch.tensor(output, dtype=torch.long)
     return output
 
-def eval_some (inputs, targets, encoder, decoder, n):
-    for i in range(n):
-        index = random.randint(0, len(pairs)-1)
-        input = inputs[index]
-        target = targets[index]
+def eval_some (inputs, targets, encoder, decoder):
+    for i in range(len(inputs)):
+        input = inputs[i]
+        target = targets[i]
         output = eval(input, target, encoder, decoder)
         print('< ' + indices_to_sentence(input, input_lang))
         print('= ' + indices_to_sentence(target, output_lang))
@@ -292,5 +280,5 @@ def eval_some (inputs, targets, encoder, decoder, n):
 
 encoder = EncoderGru(input_lang.n_words, embedding_size=embedding_size, hidden_size=hidden_size).to(device)
 decoder = DecoderGruAttn(output_lang.n_words, embedding_size=embedding_size, hidden_size=hidden_size).to(device)
-train_all(inputs, targets, encoder, decoder, epochs=epochs)
-eval_some(inputs, targets, encoder, decoder, 10)
+train_all(inputs_train, targets_train, encoder, decoder, epochs=epochs)
+eval_some(inputs_dev, targets_dev, encoder, decoder)
