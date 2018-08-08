@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-device = torch.device('cuda:7')
+device = torch.device('cuda:0')
 
-epochs = 1
+epochs = 10
 embedding_size = 300
 hidden_size = 1024
 learning_rate = 1e-4
