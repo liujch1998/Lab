@@ -1,17 +1,18 @@
+import progressbar
+
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 device = torch.device('cuda:7')
 
-import numpy as np
-
 epochs = 1
 embedding_size = 300
 hidden_size = 1024
 learning_rate = 1e-4
 teacher_forcing_ratio = 0.5
-print_every = 1000
 
 class EncoderGru (nn.Module):
 
@@ -103,48 +104,45 @@ def train_one (input, target, encoder, decoder):
     return loss
 
 def train_all (inputs, targets, encoder, decoder):
-    n_examples = len(inputs)
     for epoch in range(epochs):
-        print('Epoch %s' % epoch)
         loss_sum = 0.0
-        for example in range(n_examples):
-            input = inputs[example]
-            target = targets[example]
+        pbar = progressbar.ProgressBar(
+            widgets=[
+        		progressbar.Percentage(), ' ',
+        		progressbar.Bar(marker='>', fill='-'), ' ',
+        		progressbar.ETA(), ' ',
+        	])
+        for i in pbar(range(len(inputs))):
+            input = inputs[i]
+            target = targets[i]
             loss = train_one(input, target, encoder, decoder)
             loss_sum += loss
+        loss_avg = loss_sum / len(inputs)
+        print('Epoch %s  Loss %.4f' % (epoch, loss_avg))
+        torch.save(encoder, 'model/encoder-epoch-' + str(epoch))
+        torch.save(decoder, 'model/decoder-epoch-' + str(epoch))
 
-            if example % print_every == print_every - 1:
-                loss_avg = loss_sum / print_every
-                print('Loss %s' % loss_avg)
-                loss_sum = 0.0
-                break
-        torch.save(encoder, 'model/encoder-epoch' + str(epoch))
-        torch.save(decoder, 'model/decoder-epoch' + str(epoch))
-
-def eval_one (input, target, encoder, decoder):
+def eval_one (input, encoder, decoder):
     output = []
     with torch.no_grad():
         input_seq_len = len(input)
-        target_seq_len = len(target)
         input = torch.tensor(input, dtype=torch.long, device=device).unsqueeze(1)
-        target = torch.tensor(target, dtype=torch.long, device=device).unsqueeze(1)
 
         encoder_output = encoder(input)
         decoder_input = torch.tensor([[-1]], dtype=torch.long, device=device)
         prev_hidden = encoder.hidden
 
-        for i in range(target_seq_len):
+        for i in range(input_seq_len):
             decoder_output, prev_hidden = decoder(decoder_input, prev_hidden, encoder_output)
             topv, topi = decoder_output.topk(1)
             decoder_input = torch.tensor([[topi.detach().item()]], dtype=torch.long, device=device)
             output.append(topi.detach().item())
     return output
 
-def eval_all (inputs, targets, encoder, decoder):
+def eval_all (inputs, encoder, decoder):
     outputs = []
     for i in range(len(inputs)):
         input = inputs[i]
-        target = targets[i]
-        output = eval_one(input, target, encoder, decoder)
+        output = eval_one(input, encoder, decoder)
         outputs.append(output)
     return outputs
