@@ -8,9 +8,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 device = torch.device('cuda:0')
 
+from pypinyin import pinyin, Style
+
 epochs = 10
 embedding_size = 300
-hidden_size = 1024
+hidden_size = 256
 learning_rate = 1e-4
 teacher_forcing_ratio = 0.5
 
@@ -122,7 +124,7 @@ def train_all (inputs, targets, encoder, decoder):
         torch.save(encoder, 'model/encoder-epoch-' + str(epoch))
         torch.save(decoder, 'model/decoder-epoch-' + str(epoch))
 
-def eval_one (input, encoder, decoder):
+def eval_one (input, encoder, decoder, lang, allowed):
     output = []
     with torch.no_grad():
         input_seq_len = len(input)
@@ -134,15 +136,28 @@ def eval_one (input, encoder, decoder):
 
         for i in range(input_seq_len):
             decoder_output, prev_hidden = decoder(decoder_input, prev_hidden, encoder_output)
-            topv, topi = decoder_output.topk(1)
-            decoder_input = torch.tensor([[topi.detach().item()]], dtype=torch.long, device=device)
-            output.append(topi.detach().item())
+            selection = None
+            if i == 0:
+                topv, topi = decoder_output.topk(1000)
+                cands = topi.squeeze().tolist()
+                for cand in cands:
+                    py = pinyin(lang.index2han[cand], style=Style.TONE3, heteronym=False)[0][0]
+                    for allow in allowed:
+                        if allow in py:
+                            selection = cand
+                    if selection is not None:
+                        break
+            if selection is None:
+                topv, topi = decoder_output.topk(1)
+                selection = topi.detach().item()
+            decoder_input = torch.tensor([[selection]], dtype=torch.long, device=device)
+            output.append(selection)
     return output
 
-def eval_all (inputs, encoder, decoder):
+def eval_all (inputs, encoder, decoder, lang, allowed):
     outputs = []
     for i in range(len(inputs)):
         input = inputs[i]
-        output = eval_one(input, encoder, decoder)
+        output = eval_one(input, encoder, decoder, lang, allowed)
         outputs.append(output)
     return outputs

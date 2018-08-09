@@ -26,10 +26,9 @@ unks = [
 ]
 UNK = u'\u0000'
 
-def load_data ():
+def load_data (filenames):
     poems = []
-    for i in range(0, 22000, 1000):
-        filename = 'chinese-poetry/ci/ci.song.' + str(i) + '.json'
+    for filename in filenames:
         with open(filename, 'r') as f:
             poems += json.load(f)
     sentences = []
